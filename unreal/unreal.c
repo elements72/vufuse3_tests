@@ -24,10 +24,8 @@ static int op_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t
 {
     DIR *d;
     struct dirent *dir;
-    if(strcmp(path, "/") == 0)
-        d = opendir("/");
-    else 
-        d = opendir(path);
+
+    d = opendir(path);
     while ((dir = readdir(d)) != NULL) {
         filler(buf, dir->d_name, NULL, 0, flags);
     }
@@ -40,6 +38,6 @@ static const struct fuse_operations unreal_ops = {
 };
 
 int main(int argc, char *argv[]) {
-    // printk("Unreal len: %d", unreal_len);
+    // printf("Path: %s", argv[1]);
     return fuse_main(argc, argv, &unreal_ops, NULL);
 }
