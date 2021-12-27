@@ -4,30 +4,60 @@
 #include <string.h>
 #include <dirent.h>
 #include <errno.h>
+#include <sys/xattr.h>
+#include <unistd.h>
+#include <sys/types.h>
 #include <sys/stat.h>
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
 
 // Path of the unreal folder
-int unreal_len;
+char unreal[PATH_MAX];
+
+char *get_real_path(const char *path)
+{
+    char base_path[PATH_MAX];
+    size_t unreal_len = strlen(unreal);
+    strncpy(base_path, path, unreal_len);
+    base_path[unreal_len] = '\0';
+    if(base_path[unreal_len -1] != '/')
+        strcat(base_path, "/");
+
+    if (strcmp(base_path, unreal) == 0){
+        if(strlen(path) != unreal_len - 1)
+            return (char *) path + unreal_len - 1;
+        return "/";
+    }
+    return (char *) path;
+}
 
 static int op_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
 {
     struct stat stats;
-    if(stat(path, &stats) == 0)
+    if(stat(get_real_path(path), &stats) == 0)
         *stbuf = stats;
     else
         return -ENOENT;
     return 0;
 }
 
+
 static int op_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi,
                       enum fuse_readdir_flags flags)
 {
     DIR *d;
     struct dirent *dir;
-
-    d = opendir(path);
+    char *real_path = get_real_path(path);
+    d = opendir(real_path);
     while ((dir = readdir(d)) != NULL) {
-        filler(buf, dir->d_name, NULL, 0, flags);
+        struct stat stbuf;
+        if (stat(dir->d_name, &stbuf) >= 0)
+        {
+            filler(buf, dir->d_name, &stbuf, 0, flags);
+        }
+        else
+            filler(buf, dir->d_name, NULL, 0, flags);
     }
     return 0;
 }
@@ -38,6 +68,13 @@ static const struct fuse_operations unreal_ops = {
 };
 
 int main(int argc, char *argv[]) {
-    // printf("Path: %s", argv[1]);
+    printf("Argc: %d\n", argc);
+    printf("Arg 0: %s\n", argv[0]);
+    printf("Arg 1: %s\n", argv[1]);
+    printf("Arg 2: %s\n", argv[2]);
+    printf("Arg 3: %s\n", argv[3]);
+    strcpy(unreal, argv[argc-1]);
+    if(unreal[strlen(unreal)-1] != '/')
+        strcat(unreal, "/");
     return fuse_main(argc, argv, &unreal_ops, NULL);
 }
