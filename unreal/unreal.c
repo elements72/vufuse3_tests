@@ -35,13 +35,20 @@ char *get_real_path(const char *path)
 static int op_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
 {
     struct stat stats;
-    if(stat(get_real_path(path), &stats) == 0)
+    if(lstat(get_real_path(path), &stats) == 0)
         *stbuf = stats;
     else
         return -ENOENT;
     return 0;
 }
 
+int op_readlink(const char *path, char *buf, size_t size)
+{
+    memset(buf, '\0', size);
+    int rv = readlink(get_real_path(path), buf, size);
+
+    return rv;
+}
 
 static int op_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi,
                       enum fuse_readdir_flags flags)
@@ -52,7 +59,7 @@ static int op_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t
     d = opendir(real_path);
     while ((dir = readdir(d)) != NULL) {
         struct stat stbuf;
-        if (stat(dir->d_name, &stbuf) >= 0)
+        if (lstat(dir->d_name, &stbuf) >= 0)
         {
             filler(buf, dir->d_name, &stbuf, 0, flags);
         }
@@ -65,14 +72,11 @@ static int op_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t
 static const struct fuse_operations unreal_ops = {
     .getattr = op_getattr,
     .readdir = op_readdir,
+    .readlink = op_readlink,
 };
 
 int main(int argc, char *argv[]) {
-    printf("Argc: %d\n", argc);
-    printf("Arg 0: %s\n", argv[0]);
-    printf("Arg 1: %s\n", argv[1]);
-    printf("Arg 2: %s\n", argv[2]);
-    printf("Arg 3: %s\n", argv[3]);
+    // TODO - Find a way to get the path argument also in FUSE
     strcpy(unreal, argv[argc-1]);
     if(unreal[strlen(unreal)-1] != '/')
         strcat(unreal, "/");
